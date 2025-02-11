@@ -1,28 +1,26 @@
-import { Chip, IconButton, Paper, Tooltip } from '@material-ui/core';
+import { Chip, IconButton, Paper, Tooltip, Button } from '@material-ui/core';
 import { Theme, withStyles } from '@material-ui/core/styles';
 import { ClassNameMap, Styles } from '@material-ui/core/styles/withStyles';
-import { Delete } from '@material-ui/icons';
-import { useEffect, useRef, useCallback } from 'react';
+import { Delete, Search } from '@material-ui/icons';
+import { WebsocSectionFinalExam } from '@packages/antalmanac-types';
+import { useEffect, useRef } from 'react';
 import { Event } from 'react-big-calendar';
-import { Link } from 'react-router-dom';
-
-import CustomEventDialog from './Toolbar/CustomEventDialog/CustomEventDialog';
 
 import { deleteCourse, deleteCustomEvent } from '$actions/AppStoreActions';
+import CustomEventDialog from '$components/Calendar/Toolbar/CustomEventDialog/';
 import ColorPicker from '$components/ColorPicker';
+import { MapLink } from '$components/buttons/MapLink';
 import analyticsEnum, { logAnalytics } from '$lib/analytics';
-import buildingCatalogue from '$lib/buildingCatalogue';
-import { clickToCopy } from '$lib/helpers';
-import locationIds from '$lib/location_ids';
+import { clickToCopy, useQuickSearchForClasses } from '$lib/helpers';
+import buildingCatalogue from '$lib/locations/buildingCatalogue';
+import locationIds from '$lib/locations/locations';
 import AppStore from '$stores/AppStore';
-import { useTimeFormatStore, useThemeStore } from '$stores/SettingsStore';
-import { useTabStore } from '$stores/TabStore';
+import { useTimeFormatStore } from '$stores/SettingsStore';
 import { formatTimes } from '$stores/calendarizeHelpers';
 
 const styles: Styles<Theme, object> = {
     courseContainer: {
         padding: '0.5rem',
-        margin: '0 1rem',
         minWidth: '15rem',
     },
     customEventContainer: {
@@ -107,21 +105,9 @@ export interface Location {
     days?: string;
 }
 
-export interface FinalExam {
-    examStatus: 'NO_FINAL' | 'TBA_FINAL' | 'SCHEDULED_FINAL';
-    dayOfWeek: 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | null;
-    month: number | null;
-    day: number | null;
-    startTime: {
-        hour: number;
-        minute: number;
-    } | null;
-    endTime: {
-        hour: number;
-        minute: number;
-    } | null;
-    locations: Location[] | null;
-}
+export type FinalExam =
+    | (Omit<Extract<WebsocSectionFinalExam, { examStatus: 'SCHEDULED_FINAL' }>, 'bldg'> & { locations: Location[] })
+    | Extract<WebsocSectionFinalExam, { examStatus: 'NO_FINAL' | 'TBA_FINAL' }>;
 
 export interface CourseEvent extends CommonCalendarEvent {
     locations: Location[];
@@ -132,11 +118,13 @@ export interface CourseEvent extends CommonCalendarEvent {
     isCustomEvent: false;
     sectionCode: string;
     sectionType: string;
+    deptValue: string;
+    courseNumber: string;
     term: string;
 }
 
 /**
- * There is another CustomEvent interface in CourseCalendarEvent and they are slightly different.  The this one represents only one day, like the event on Monday, and needs to be duplicated to be repeated across multiple days. The other one, `CustomEventDialog`'s `RepeatingCustomEvent`, encapsulates the occurences of an event on multiple days, like Monday Tuesday Wednesday all in the same object as specified by the `days` array.
+ * There is another CustomEvent interface in CourseCalendarEvent and they are slightly different.  The this one represents only one day, like the event on Monday, and needs to be duplicated to be repeated across multiple days. The other one, `CustomEventDialog`'s `RepeatingCustomEvent`, encapsulates the occurrences of an event on multiple days, like Monday Tuesday Wednesday all in the same object as specified by the `days` array.
  * https://github.com/icssc/AntAlmanac/wiki/The-Great-AntAlmanac-TypeScript-Rewritening%E2%84%A2#duplicate-interface-names-%EF%B8%8F
  */
 export interface CustomEvent extends CommonCalendarEvent {
@@ -150,15 +138,17 @@ export type CalendarEvent = CourseEvent | CustomEvent;
 
 interface CourseCalendarEventProps {
     classes: ClassNameMap;
-    courseInMoreInfo: CalendarEvent;
+    selectedEvent: CalendarEvent;
     scheduleNames: string[];
     closePopover: () => void;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
+const CourseCalendarEvent = ({ classes, selectedEvent, scheduleNames, closePopover }: CourseCalendarEventProps) => {
     const paperRef = useRef<HTMLInputElement>(null);
+    const quickSearch = useQuickSearchForClasses();
+    const { isMilitaryTime } = useTimeFormatStore();
 
     useEffect(() => {
         const handleKeyDown = (event: { keyCode: number }) => {
@@ -175,18 +165,9 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
         };
     }, []);
 
-    const { setActiveTab } = useTabStore();
-    const { isMilitaryTime } = useTimeFormatStore();
-    const isDark = useThemeStore((store) => store.isDark);
-
-    const focusMap = useCallback(() => {
-        setActiveTab(2);
-    }, [setActiveTab]);
-
-    const { classes, courseInMoreInfo } = props;
-
-    if (!courseInMoreInfo.isCustomEvent) {
-        const { term, instructors, sectionCode, title, finalExam, locations, sectionType } = courseInMoreInfo;
+    if (!selectedEvent.isCustomEvent) {
+        const { term, instructors, sectionCode, title, finalExam, locations, sectionType, deptValue, courseNumber } =
+            selectedEvent;
 
         let finalExamString = '';
 
@@ -195,7 +176,7 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
         } else if (finalExam.examStatus == 'TBA_FINAL') {
             finalExamString = 'Final TBA';
         } else {
-            if (finalExam.startTime && finalExam.endTime && finalExam.month && finalExam.locations) {
+            if (finalExam.examStatus === 'SCHEDULED_FINAL') {
                 const timeString = formatTimes(finalExam.startTime, finalExam.endTime, isMilitaryTime);
                 const locationString = `at ${finalExam.locations
                     .map((location) => `${location.building} ${location.room}`)
@@ -206,15 +187,25 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
             }
         }
 
+        const handleQuickSearch = () => {
+            quickSearch(deptValue, courseNumber, term);
+        };
+
         return (
             <Paper className={classes.courseContainer} ref={paperRef}>
                 <div className={classes.titleBar}>
-                    <span className={classes.title}>{`${title} ${sectionType}`}</span>
+                    <Tooltip title="Quick Search">
+                        <Button size="small" onClick={handleQuickSearch}>
+                            <Search fontSize="small" style={{ marginRight: 5 }} />
+                            <span className={classes.title}>{`${title} ${sectionType}`}</span>
+                        </Button>
+                    </Tooltip>
                     <Tooltip title="Delete">
                         <IconButton
                             size="small"
+                            style={{ textDecoration: 'underline' }}
                             onClick={() => {
-                                props.closePopover();
+                                closePopover();
                                 deleteCourse(sectionCode, term);
                                 logAnalytics({
                                     category: analyticsEnum.calendar.title,
@@ -260,14 +251,10 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
                             <td className={`${classes.multiline} ${classes.rightCells}`}>
                                 {locations.map((location) => (
                                     <div key={`${sectionCode} @ ${location.building} ${location.room}`}>
-                                        <Link
-                                            className={classes.clickableLocation}
-                                            to={`/map?location=${locationIds[location.building] ?? 0}`}
-                                            onClick={focusMap}
-                                            color={isDark ? '#1cbeff' : 'blue'}
-                                        >
-                                            {location.building} {location.room}
-                                        </Link>
+                                        <MapLink
+                                            buildingId={locationIds[location.building] ?? '0'}
+                                            room={`${location.building} ${location.room}`}
+                                        />
                                     </div>
                                 ))}
                             </td>
@@ -280,10 +267,10 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
                             <td>Color</td>
                             <td className={`${classes.colorPicker} ${classes.stickToRight}`}>
                                 <ColorPicker
-                                    color={courseInMoreInfo.color}
-                                    isCustomEvent={courseInMoreInfo.isCustomEvent}
-                                    sectionCode={courseInMoreInfo.sectionCode}
-                                    term={courseInMoreInfo.term}
+                                    color={selectedEvent.color}
+                                    isCustomEvent={selectedEvent.isCustomEvent}
+                                    sectionCode={selectedEvent.sectionCode}
+                                    term={selectedEvent.term}
                                     analyticsCategory={analyticsEnum.calendar.title}
                                 />
                             </td>
@@ -293,41 +280,35 @@ const CourseCalendarEvent = (props: CourseCalendarEventProps) => {
             </Paper>
         );
     } else {
-        const { title, customEventID, building } = courseInMoreInfo;
+        const { title, customEventID, building } = selectedEvent;
         return (
             <Paper className={classes.customEventContainer} ref={paperRef}>
                 <div className={classes.title}>{title}</div>
                 {building && (
                     <div className={classes.table}>
                         Location:&nbsp;
-                        <Link
-                            className={classes.clickableLocation}
-                            to={`/map?location=${building ?? 0}`}
-                            onClick={focusMap}
-                        >
-                            {buildingCatalogue[+building]?.name ?? ''}
-                        </Link>
+                        <MapLink buildingId={+building} room={buildingCatalogue[+building]?.name ?? ''} />
                     </div>
                 )}
                 <div className={classes.buttonBar}>
                     <div className={`${classes.colorPicker}`}>
                         <ColorPicker
-                            color={courseInMoreInfo.color}
+                            color={selectedEvent.color}
                             isCustomEvent={true}
-                            customEventID={courseInMoreInfo.customEventID}
+                            customEventID={selectedEvent.customEventID}
                             analyticsCategory={analyticsEnum.calendar.title}
                         />
                     </div>
                     <CustomEventDialog
-                        onDialogClose={props.closePopover}
+                        onDialogClose={closePopover}
                         customEvent={AppStore.schedule.getExistingCustomEvent(customEventID)}
-                        scheduleNames={props.scheduleNames}
+                        scheduleNames={scheduleNames}
                     />
 
                     <Tooltip title="Delete">
                         <IconButton
                             onClick={() => {
-                                props.closePopover();
+                                closePopover();
                                 deleteCustomEvent(customEventID);
                                 logAnalytics({
                                     category: analyticsEnum.calendar.title,

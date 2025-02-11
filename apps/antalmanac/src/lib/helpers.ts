@@ -1,28 +1,10 @@
-import React from 'react';
+import { MouseEvent, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import { PETERPORTAL_GRAPHQL_ENDPOINT } from './api/endpoints';
 import { openSnackbar } from '$actions/AppStoreActions';
-
-export async function queryGraphQL<PromiseReturnType>(queryString: string): Promise<PromiseReturnType | null> {
-    const query = JSON.stringify({
-        query: queryString,
-    });
-
-    const res = await fetch(`${PETERPORTAL_GRAPHQL_ENDPOINT}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-        },
-        body: query,
-    });
-
-    const json = await res.json();
-
-    if (!res.ok || json.data === null) return null;
-
-    return json as Promise<PromiseReturnType>;
-}
+import RightPaneStore from '$components/RightPane/RightPaneStore';
+import { useCoursePaneStore } from '$stores/CoursePaneStore';
+import { useTabStore } from '$stores/TabStore';
 
 export const warnMultipleTerms = (terms: Set<string>) => {
     openSnackbar(
@@ -34,10 +16,39 @@ export const warnMultipleTerms = (terms: Set<string>) => {
     );
 };
 
-export async function clickToCopy(event: React.MouseEvent<HTMLElement, MouseEvent>, sectionCode: string) {
+export async function clickToCopy(event: MouseEvent<HTMLElement>, sectionCode: string) {
     event.stopPropagation();
     await navigator.clipboard.writeText(sectionCode);
     openSnackbar('success', 'WebsocSection code copied to clipboard');
+}
+
+export function useQuickSearchForClasses() {
+    const { displaySections, forceUpdate } = useCoursePaneStore();
+    const { setActiveTab } = useTabStore();
+    const navigate = useNavigate();
+
+    return useCallback(
+        (deptValue: string, courseNumber: string, termValue: string) => {
+            const queryParams = {
+                term: termValue,
+                deptValue: deptValue,
+                courseNumber: courseNumber,
+            };
+
+            const href = `/?${Object.entries(queryParams)
+                .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                .join('&')}`;
+
+            RightPaneStore.updateFormValue('deptValue', deptValue);
+            RightPaneStore.updateFormValue('courseNumber', courseNumber);
+            RightPaneStore.updateFormValue('term', termValue);
+            navigate(href, { replace: false });
+            setActiveTab('search');
+            displaySections();
+            forceUpdate();
+        },
+        [displaySections, forceUpdate, setActiveTab]
+    );
 }
 
 export const FAKE_LOCATIONS = ['VRTL REMOTE', 'ON LINE', 'TBA'];

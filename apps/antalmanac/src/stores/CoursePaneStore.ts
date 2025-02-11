@@ -21,14 +21,38 @@ function paramsAreInURL() {
     const search = new URLSearchParams(window.location.search);
 
     // TODO: This should be standardized
-    const searchParams = ['courseCode', 'courseNumber', 'deptLabel', 'GE', 'deptValue', 'term'];
+    const searchParams = [
+        'courseCode',
+        'courseNumber',
+        'deptLabel',
+        'ge',
+        'deptValue',
+        'term',
+        'sectionCode',
+        'instructor',
+        'units',
+        'endTime',
+        'startTime',
+        'coursesFull',
+        'building',
+        'room',
+        'division',
+    ];
+
+    return searchParams.some((param) => search.get(param) !== null);
+}
+
+function requiredParamsAreInURL() {
+    const search = new URLSearchParams(window.location.search);
+
+    const searchParams = ['courseCode', 'courseNumber', 'ge', 'deptValue'];
 
     return searchParams.some((param) => search.get(param) !== null);
 }
 
 export const useCoursePaneStore = create<CoursePaneStore>((set) => {
     return {
-        searchIsDisplayed: true,
+        searchIsDisplayed: requiredParamsAreInURL() ? false : true,
         displaySearch: () => {
             set({ searchIsDisplayed: true });
         },
@@ -45,5 +69,3 @@ export const useCoursePaneStore = create<CoursePaneStore>((set) => {
         forceUpdate: () => set((state) => ({ key: (state.key += 1) })),
     };
 });
-
-export default useCoursePaneStore;

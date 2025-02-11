@@ -1,6 +1,7 @@
-import { useCallback, useMemo } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
-import buildingCatalogue, { Building } from '$lib/buildingCatalogue';
+import { useCallback, useMemo } from 'react';
+
+import buildingCatalogue, { Building } from '$lib/locations/buildingCatalogue';
 
 export interface ExtendedBuilding extends Building {
     id: string;
@@ -20,12 +21,18 @@ const buildings: ExtendedBuilding[] = Object.entries(buildingCatalogue)
 export type BuildingSelectProps = {
     value?: string;
     onChange?: (building?: ExtendedBuilding | null) => unknown;
+    variant?: 'standard' | 'filled' | 'outlined' | undefined;
 };
 
 export function BuildingSelect(props: BuildingSelectProps) {
-    const handleChange = useCallback(async (_event: React.SyntheticEvent, value: ExtendedBuilding | null) => {
-        await props.onChange?.(value);
-    }, []);
+    const { onChange } = props;
+
+    const handleChange = useCallback(
+        async (_event: React.SyntheticEvent, value: ExtendedBuilding | null) => {
+            await onChange?.(value);
+        },
+        [onChange]
+    );
 
     const value = useMemo(() => {
         if (props.value == null) {
@@ -47,7 +54,7 @@ export function BuildingSelect(props: BuildingSelectProps) {
             isOptionEqualToValue={(option, value) => option.id === value?.id}
             getOptionLabel={(option) => option.name ?? ''}
             onChange={handleChange}
-            renderInput={(params) => <TextField {...params} label="Search for a place" variant="filled" />}
+            renderInput={(params) => <TextField {...params} label="Search for a place" variant={props.variant} />}
         />
     );
 }

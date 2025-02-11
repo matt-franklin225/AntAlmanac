@@ -65,6 +65,7 @@ function getCourses() {
                         ...course.section,
                     },
                 ],
+                updatedAt: null,
             };
             formattedCourses.push(formattedCourse);
         }
@@ -266,7 +267,7 @@ function SkeletonSchedule() {
             <ScheduleNoteBox />
 
             <Typography variant="body1">
-                PeterPortal or WebSoc is currently unreachable. This is the information that we can currently retrieve.
+                Anteater API is currently unreachable. This is the information that we can currently retrieve.
             </Typography>
         </Box>
     );
@@ -329,13 +330,13 @@ function AddedSectionsGrid() {
     );
 
     return (
-        <Box display="flex" flexDirection="column" gap={1} marginX={0.5}>
+        <Box display="flex" flexDirection="column" gap={1}>
             <Box display="flex" width={1} position="absolute" zIndex="2">
                 <CopyScheduleButton index={scheduleIndex} buttonSx={buttonSx} />
                 <ClearScheduleButton buttonSx={buttonSx} />
                 <ColumnToggleDropdown />
             </Box>
-            <Box style={{ marginTop: 50 }}>
+            <Box style={{ marginTop: 56 }}>
                 <Typography variant="h6">{`${scheduleName} (${scheduleUnits} Units)`}</Typography>
                 {courses.length < 1 ? NoCoursesBox : null}
                 <Box display="flex" flexDirection="column" gap={1}>
@@ -362,7 +363,7 @@ function AddedSectionsGrid() {
     );
 }
 
-export default function AddedCoursePaneFunctionComponent() {
+export function AddedCoursePane() {
     const [skeletonMode, setSkeletonMode] = useState(AppStore.getSkeletonMode());
 
     useEffect(() => {

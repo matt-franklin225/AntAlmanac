@@ -2,14 +2,14 @@ import { Box, Link, Typography, Skeleton } from '@mui/material';
 import { useState, useEffect, useMemo } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-import GradesHelper, { type Grades } from '$lib/grades';
+import { Grades, type GradesProps } from '$lib/grades';
 import { useThemeStore } from '$stores/SettingsStore';
 export interface GradeData {
     grades: {
         name: string;
         all: number;
     }[];
-    courseGrades: Grades;
+    courseGrades: GradesProps;
 }
 
 async function getGradeData(
@@ -17,7 +17,7 @@ async function getGradeData(
     courseNumber: string,
     instructor: string
 ): Promise<GradeData | undefined> {
-    const courseGrades = await GradesHelper.queryGrades(deptCode, courseNumber, instructor, false).catch((e) => {
+    const courseGrades = await Grades.queryGrades(deptCode, courseNumber, instructor, false).catch((e) => {
         console.error(e);
         return undefined;
     });
@@ -72,7 +72,10 @@ function GradesPopup(props: GradesPopupProps) {
         return gradeData
             ? `${deptCode} ${courseNumber}${
                   instructor ? ` — ${instructor}` : ''
-              } | Average GPA: ${gradeData.courseGrades.averageGPA.toFixed(2)}`
+                  // GPA is `null` if the class is pass/no-pass only.
+                  // This is more correct compared to returning a zero GPA,
+                  // which so far has not happened, but is entirely possible.
+              } | Average GPA: ${gradeData.courseGrades.averageGPA?.toFixed(2) ?? 'n/a'}`
             : 'Grades are not available for this class.';
     }, [gradeData, deptCode, courseNumber, instructor]);
 

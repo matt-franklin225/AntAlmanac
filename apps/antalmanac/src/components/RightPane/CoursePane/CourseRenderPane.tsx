@@ -1,7 +1,6 @@
 import { Close } from '@mui/icons-material';
-import { Alert, Box, IconButton, useMediaQuery } from '@mui/material';
-import { AACourse, AASection } from '@packages/antalmanac-types';
-import { WebsocDepartment, WebsocSchool, WebsocAPIResponse, GE } from 'peterportal-api-next-types';
+import { Alert, Box, IconButton, Link, useMediaQuery, useTheme } from '@mui/material';
+import { AACourse, AASection, WebsocDepartment, WebsocSchool, WebsocAPIResponse, GE } from '@packages/antalmanac-types';
 import { useCallback, useEffect, useState } from 'react';
 import LazyLoad from 'react-lazyload';
 
@@ -9,7 +8,7 @@ import RightPaneStore from '../RightPaneStore';
 import GeDataFetchProvider from '../SectionTable/GEDataFetchProvider';
 import SectionTableLazyWrapper from '../SectionTable/SectionTableLazyWrapper';
 
-import SchoolDeptCard from './SchoolDeptCard';
+import { SchoolDeptCard } from './SchoolDeptCard';
 import darkModeLoadingGif from './SearchForm/Gifs/dark-loading.gif';
 import loadingGif from './SearchForm/Gifs/loading.gif';
 import darkNoNothing from './static/dark-no_results.png';
@@ -17,15 +16,16 @@ import noNothing from './static/no_results.png';
 
 import { openSnackbar } from '$actions/AppStoreActions';
 import analyticsEnum from '$lib/analytics';
-import Grades from '$lib/grades';
+import { Grades } from '$lib/grades';
 import { getLocalStorageRecruitmentDismissalTime, setLocalStorageRecruitmentDismissalTime } from '$lib/localStorage';
-import WebSOC from '$lib/websoc';
+import { WebSOC } from '$lib/websoc';
 import AppStore from '$stores/AppStore';
 import { useHoveredStore } from '$stores/HoveredStore';
 import { useThemeStore } from '$stores/SettingsStore';
 
 function getColors() {
-    const courseColors = AppStore.schedule.getCurrentCourses().reduce(
+    const currentCourses = AppStore.schedule.getCurrentCourses();
+    const courseColors = currentCourses.reduce(
         (accumulator, { section }) => {
             accumulator[section.sectionCode] = section.color;
             return accumulator;
@@ -58,8 +58,8 @@ const flattenSOCObject = (SOCObject: WebsocAPIResponse): (WebsocSchool | WebsocD
 };
 const RecruitmentBanner = () => {
     const [bannerVisibility, setBannerVisibility] = useState(true);
-
-    const isDark = useThemeStore((store) => store.isDark);
+    const theme = useTheme();
+    const isMobileScreen = useMediaQuery(theme.breakpoints.down('sm'));
 
     // Display recruitment banner if more than 11 weeks (in ms) has passed since last dismissal
     const recruitmentDismissalTime = getLocalStorageRecruitmentDismissalTime();
@@ -71,7 +71,10 @@ const RecruitmentBanner = () => {
     );
     const displayRecruitmentBanner = bannerVisibility && !dismissedRecently && isSearchCS;
 
-    const isMobileScreen = useMediaQuery('(max-width: 750px)');
+    const handleClick = () => {
+        setLocalStorageRecruitmentDismissalTime(Date.now().toString());
+        setBannerVisibility(false);
+    };
 
     return (
         <Box sx={{ position: 'fixed', bottom: 5, right: isMobileScreen ? 5 : 75, zIndex: 999 }}>
@@ -80,19 +83,12 @@ const RecruitmentBanner = () => {
                     icon={false}
                     severity="info"
                     style={{
-                        color: isDark ? '#ece6e6' : '#2e2e2e',
-                        backgroundColor: isDark ? '#2e2e2e' : '#ece6e6',
+                        color: 'unset',
+                        backgroundColor: theme.palette.background.paper,
+                        boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
                     }}
                     action={
-                        <IconButton
-                            aria-label="close"
-                            size="small"
-                            color="inherit"
-                            onClick={() => {
-                                setLocalStorageRecruitmentDismissalTime(Date.now().toString());
-                                setBannerVisibility(false);
-                            }}
-                        >
+                        <IconButton aria-label="close" size="small" color="inherit" onClick={handleClick}>
                             <Close fontSize="inherit" />
                         </IconButton>
                     }
@@ -166,13 +162,51 @@ const LoadingMessage = () => {
 };
 
 const ErrorMessage = () => {
+    const theme = useTheme();
     const isDark = useThemeStore((store) => store.isDark);
+
+    const formData = RightPaneStore.getFormData();
+    const deptValue = formData.deptValue.replace(' ', '').toUpperCase() || null;
+    const courseNumber = formData.courseNumber.replace(/\s+/g, '').toUpperCase() || null;
+    const courseId = deptValue && courseNumber ? `${deptValue}${courseNumber}` : null;
+
     return (
-        <Box sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <Box
+            sx={{
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                flexDirection: 'column',
+            }}
+        >
+            {courseId ? (
+                <Link href={`https://peterportal.org/course/${courseId}`} target="_blank" sx={{ width: '100%' }}>
+                    <Alert
+                        variant="filled"
+                        severity="info"
+                        sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            fontSize: 14,
+                            backgroundColor: theme.palette.primary.main,
+                            color: 'white',
+                        }}
+                    >
+                        <span>
+                            Search for{' '}
+                            <span style={{ textDecoration: 'underline' }}>
+                                {deptValue} {courseNumber}
+                            </span>{' '}
+                            on PeterPortal!
+                        </span>
+                    </Alert>
+                </Link>
+            ) : null}
+
             <img
                 src={isDark ? darkNoNothing : noNothing}
                 alt="No Results Found"
-                style={{ objectFit: 'contain', width: '80%', height: '80%' }}
+                style={{ objectFit: 'contain', width: '80%', height: '80%', pointerEvents: 'none' }}
             />
         </Box>
     );
@@ -185,7 +219,7 @@ export default function CourseRenderPane(props: { id?: number }) {
     const [error, setError] = useState(false);
     const [scheduleNames, setScheduleNames] = useState(AppStore.getScheduleNames());
 
-    const setHoveredEvents = useHoveredStore((store) => store.setHoveredEvents);
+    const setHoveredEvent = useHoveredStore((store) => store.setHoveredEvent);
 
     const loadCourses = useCallback(async () => {
         setLoading(true);
@@ -206,11 +240,14 @@ export default function CourseRenderPane(props: { id?: number }) {
             building: formData.building,
             room: formData.room,
             division: formData.division,
+            excludeRestrictionCodes: formData.excludeRestrictionCodes.split('').join(','), // comma delimited string (e.g. ABC -> A,B,C)
         };
 
         const gradesQueryParams = {
             department: formData.deptValue,
             ge: formData.ge as GE,
+            instructor: formData.instructor,
+            sectionCode: formData.sectionCode,
         };
 
         try {
@@ -273,12 +310,14 @@ export default function CourseRenderPane(props: { id?: number }) {
      */
     useEffect(() => {
         return () => {
-            setHoveredEvents(undefined);
+            setHoveredEvent(undefined);
         };
-    }, []);
+    }, [setHoveredEvent]);
 
     return (
         <>
+            <Box sx={{ height: '56px' }} />
+
             {loading ? (
                 <LoadingMessage />
             ) : error || courseData.length === 0 ? (
@@ -287,7 +326,6 @@ export default function CourseRenderPane(props: { id?: number }) {
                 <>
                     <RecruitmentBanner />
                     <Box>
-                        <Box sx={{ height: '50px', marginBottom: '5px' }} />
                         {courseData.map((_: WebsocSchool | WebsocDepartment | AACourse, index: number) => {
                             let heightEstimate = 200;
                             if ((courseData[index] as AACourse).sections !== undefined)

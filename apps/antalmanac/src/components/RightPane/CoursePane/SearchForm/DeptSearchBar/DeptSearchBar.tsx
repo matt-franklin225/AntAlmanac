@@ -13,7 +13,6 @@ import { getLocalStorageFavorites, setLocalStorageFavorites } from '$lib/localSt
 const style = {
     formControl: {
         flexGrow: 1,
-        marginRight: 15,
         width: '50%',
     },
 };
@@ -91,10 +90,12 @@ class DeptSearchBar extends PureComponent<DeptSearchBarProps, DeptSearchBarState
     }
 
     resetField = () => {
+        const formData = RightPaneStore.getFormData();
+
         this.setState({
             value: {
-                deptValue: RightPaneStore.getFormData().deptValue,
-                deptLabel: RightPaneStore.getFormData().deptLabel,
+                deptValue: formData.deptValue,
+                deptLabel: formData.deptLabel,
                 isFavorite: false,
             },
         });

@@ -1,12 +1,13 @@
+import type { HourMinute } from '@packages/antalmanac-types';
 import { saveAs } from 'file-saver';
 import { createEvents, type EventAttributes } from 'ics';
-import type { HourMinute } from 'peterportal-api-next-types';
 
 import { notNull } from './utils';
 
 import { openSnackbar } from '$actions/AppStoreActions';
 import { CustomEvent, FinalExam } from '$components/Calendar/CourseCalendarEvent';
 import analyticsEnum, { logAnalytics } from '$lib/analytics';
+import buildingCatalogue from '$lib/locations/buildingCatalogue';
 import { getDefaultTerm, termData } from '$lib/termData';
 import AppStore from '$stores/AppStore';
 
@@ -161,7 +162,7 @@ export function getFirstClass(
  * ```
  */
 export function getExamTime(exam: FinalExam, year: number): [DateTimeArray, DateTimeArray] | [] {
-    if (exam.month && exam.day && exam.startTime && exam.endTime) {
+    if (exam.examStatus === 'SCHEDULED_FINAL') {
         const month = exam.month;
         const day = exam.day;
         const [examStartTime, examEndTime] = parseTimes(exam.startTime, exam.endTime);
@@ -222,7 +223,7 @@ export function getTermLength(quarter: string) {
  */
 export function getRRule(bydays: string[], quarter: string) {
     /**
-     * Number of occurences in the quarter
+     * Number of occurrences in the quarter
      */
     let count = getTermLength(quarter) * bydays.length;
 
@@ -257,11 +258,12 @@ export function getEventsFromCourses(
     events = AppStore.getEventsWithFinalsInCalendar(),
     term = getDefaultTerm(events).shortName
 ): EventAttributes[] {
+    const customEventIDs = new Set();
     const calendarEvents = events.flatMap((event) => {
         if (event.isCustomEvent) {
             // FIXME: We don't have a way to get the term for custom events,
             // so we just use the default term.
-            const { title, start, end } = event as CustomEvent;
+            const { title, start, end, building } = event as CustomEvent;
             const days = getByDays(event.days.join(''));
             const rrule = getRRule(days, getQuarter(term));
             const eventStartDate = getClassStartDate(term, days);
@@ -270,13 +272,17 @@ export function getEventsFromCourses(
                 { hour: start.getHours(), minute: start.getMinutes() },
                 { hour: end.getHours(), minute: end.getMinutes() }
             );
+            const customEventID = event.customEventID;
+            if (customEventIDs.has(customEventID)) {
+                return [];
+            }
+            customEventIDs.add(customEventID);
             const customEvent: EventAttributes = {
                 productId: 'antalmanac/ics',
                 startOutputType: 'local' as const,
                 endOutputType: 'local' as const,
                 title: title,
-                // TODO: Add location to custom events, waiting for https://github.com/icssc/AntAlmanac/issues/249
-                // location: `${location.building} ${location.room}`,
+                location: buildingCatalogue[Number(building)]?.name,
                 start: firstClassStart,
                 end: firstClassEnd,
                 recurrenceRule: rrule,

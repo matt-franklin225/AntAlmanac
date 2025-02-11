@@ -18,7 +18,7 @@ import { getLocalStoragePatchNotesKey, setLocalStoragePatchNotesKey } from '$lib
  *
  * @example '20230819'
  */
-export const latestPatchNotesUpdate = '20230819';
+export const latestPatchNotesUpdate = '20250121';
 
 /**
  * Whether the user's last visited patch notes is outdated.
@@ -38,7 +38,7 @@ function PatchNotesBackdrop(props: BackdropProps) {
  * PatchNotes follows structure/layout of AboutPage.tsx
  */
 function PatchNotes() {
-    const [open, setOpen] = useState(isOutdated());
+    const [open, setOpen] = useState(() => isOutdated());
 
     const handleClose = useCallback(() => {
         setLocalStoragePatchNotesKey(latestPatchNotesUpdate);
@@ -53,30 +53,25 @@ function PatchNotes() {
             data-testid={dialogTestId}
             slots={{ backdrop: PatchNotesBackdrop }}
         >
-            <DialogTitle>{"What's New - October 2023"}</DialogTitle>
+            <DialogTitle>{"What's New - January 2025"}</DialogTitle>
 
             <DialogContent>
                 <Typography>Features</Typography>
                 <ul>
                     <li>
-                        You can now hover over the Zotistics button to see the Zotistics graph! On mobile, you can still
-                        click the Zotistics button to toggle the graph.
+                        Added column linking to course syllabi (thanks to the ASUCI{' '}
+                        <a href="https://asuci.uci.edu/academicvp/" target="_blank">
+                            AAVP
+                        </a>
+                        !).
                     </li>
+                    <li>Direct course search buttons in calendar pop-up and course header.</li>
+                    <li>Search caching for faster results on repeated queries.</li>
                 </ul>
-                <img
-                    src="https://user-images.githubusercontent.com/78244965/277567417-f9816b9d-ddda-4c0f-80f4-eeac92428612.gif"
-                    alt="(gif of the new feature)"
-                    style={{
-                        maxWidth: '100%',
-                        boxShadow: '4px 4px 4px rgba(0, 0, 0, 0.4)',
-                    }}
-                />
-                <br />
-                Remember to use the{' '}
-                <a href="https://docs.google.com/forms/d/e/1FAIpQLSe0emRHqog-Ctl8tjZfJvewY_CSGXys8ykBkFBy1EEUUUHbUw/viewform">
-                    feedback form
-                </a>{' '}
-                to let us know what you think!
+                <Typography>Bug Fixes</Typography>
+                <ul>
+                    <li>Loading schedules with BIO SCI classes. Thank you for your feedback and patience!</li>
+                </ul>
             </DialogContent>
 
             <DialogActions>

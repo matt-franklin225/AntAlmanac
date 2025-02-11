@@ -11,17 +11,13 @@
     color: white;
 }
 
-/**
- * Needed to set the table cells to the correct height...for some reason?
- */
-@media (min-resolution: 120dpi) {
-    html {
-        font-size: 14px;
+/* Hide the scrollbars on mobile devices */
+@media (max-width: 768px) {
+    ::-webkit-scrollbar {
+        display: none;
     }
-}
 
-@media (min-resolution: 144dpi) {
-    html {
-        font-size: 12px;
+    * {
+        scrollbar-width: none;
     }
 }

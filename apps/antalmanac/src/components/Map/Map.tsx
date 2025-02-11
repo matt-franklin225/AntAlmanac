@@ -1,3 +1,5 @@
+import 'leaflet/dist/leaflet.css';
+import 'leaflet.locatecontrol/dist/L.Control.Locate.min.css';
 import './Map.css';
 
 import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
@@ -14,8 +16,8 @@ import UserLocator from './UserLocator';
 import type { CourseEvent } from '$components/Calendar/CourseCalendarEvent';
 import { BuildingSelect, ExtendedBuilding } from '$components/inputs/building-select';
 import { TILES_URL } from '$lib/api/endpoints';
-import buildingCatalogue, { Building } from '$lib/buildingCatalogue';
-import locationIds from '$lib/location_ids';
+import buildingCatalogue, { Building } from '$lib/locations/buildingCatalogue';
+import locationIds from '$lib/locations/locations';
 import { notNull } from '$lib/utils';
 import AppStore from '$stores/AppStore';
 
@@ -311,7 +313,7 @@ export default function CourseMap() {
                             <Tab key={day} label={day} sx={{ padding: 1, minHeight: 'auto', minWidth: '10%' }} />
                         ))}
                     </Tabs>
-                    <BuildingSelect onChange={onBuildingChange} />
+                    <BuildingSelect onChange={onBuildingChange} variant="filled" />
                 </Paper>
 
                 <TileLayer
@@ -355,6 +357,7 @@ export default function CourseMap() {
                         <Fragment key={Object.values(marker).join('')}>
                             <LocationMarker
                                 {...marker}
+                                key={marker.key}
                                 label={today === 'All' ? undefined : (index + 1).toString()}
                                 stackIndex={coursesSameBuildingPrior.length}
                             >

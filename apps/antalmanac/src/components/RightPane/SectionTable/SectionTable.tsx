@@ -1,9 +1,7 @@
-import { useMemo } from 'react';
 import {
     Box,
     Paper,
     Table,
-    TableBody,
     TableCell,
     TableContainer,
     TableHead,
@@ -13,27 +11,29 @@ import {
     useMediaQuery,
 } from '@material-ui/core';
 import { Assessment, Help, RateReview, ShowChart as ShowChartIcon } from '@material-ui/icons';
-import { MOBILE_BREAKPOINT } from '../../../globals';
-import CourseInfoBar from './CourseInfoBar';
-import CourseInfoButton from './CourseInfoButton';
+import { useMemo } from 'react';
+
 import { EnrollmentHistoryPopup } from './EnrollmentHistoryPopup';
 import GradesPopup from './GradesPopup';
 import { SectionTableProps } from './SectionTable.types';
-import SectionTableBody from './SectionTableBody';
-import useColumnStore, { SECTION_TABLE_COLUMNS, type SectionTableColumn } from '$stores/ColumnStore';
+
+import { CourseInfoBar } from '$components/RightPane/SectionTable/CourseInfo/CourseInfoBar';
+import { CourseInfoButton } from '$components/RightPane/SectionTable/CourseInfo/CourseInfoButton';
+import { CourseInfoSearchButton } from '$components/RightPane/SectionTable/CourseInfo/CourseInfoSearchButton';
+import { SectionTableBody } from '$components/RightPane/SectionTable/SectionTableBody/SectionTableBody';
 import analyticsEnum from '$lib/analytics';
+import { MOBILE_BREAKPOINT } from '$src/globals';
+import { useColumnStore, SECTION_TABLE_COLUMNS, type SectionTableColumn } from '$stores/ColumnStore';
+import { useTabStore } from '$stores/TabStore';
 
 const TOTAL_NUM_COLUMNS = SECTION_TABLE_COLUMNS.length;
-
-// uncomment when we get past enrollment data back and restore the files (https://github.com/icssc/AntAlmanac/tree/5e89e035e66f00608042871d43730ba785f756b0/src/components/RightPane/SectionTable/EnrollmentGraph)
-// import AlmanacGraph from '../EnrollmentGraph/EnrollmentGraph';
 
 interface TableHeaderColumnDetails {
     label: string;
     width?: string;
 }
 
-const tableHeaderColumns: Record<SectionTableColumn, TableHeaderColumnDetails> = {
+const tableHeaderColumns: Record<Exclude<SectionTableColumn, 'action'>, TableHeaderColumnDetails> = {
     sectionCode: {
         label: 'Code',
         width: '8%',
@@ -68,6 +68,10 @@ const tableHeaderColumns: Record<SectionTableColumn, TableHeaderColumnDetails> =
     },
     status: {
         label: 'Status',
+        width: '8%',
+    },
+    syllabus: {
+        label: 'Syllabus',
         width: '8%',
     },
 };
@@ -106,16 +110,12 @@ function SectionTable(props: SectionTableProps) {
     const { courseDetails, term, allowHighlight, scheduleNames, analyticsCategory } = props;
 
     const [activeColumns] = useColumnStore((store) => [store.activeColumns]);
-
+    const [activeTab] = useTabStore((store) => [store.activeTab]);
     const isMobileScreen = useMediaQuery(`(max-width: ${MOBILE_BREAKPOINT})`);
 
     const courseId = useMemo(() => {
         return courseDetails.deptCode.replaceAll(' ', '') + courseDetails.courseNumber;
     }, [courseDetails.deptCode, courseDetails.courseNumber]);
-
-    const encodedDept = useMemo(() => {
-        return encodeURIComponent(courseDetails.deptCode);
-    }, [courseDetails.deptCode]);
 
     /**
      * Limit table width to force side scrolling.
@@ -137,8 +137,7 @@ function SectionTable(props: SectionTableProps) {
                     analyticsCategory={analyticsCategory}
                 />
 
-                {/* Temporarily remove "Past Enrollment" until data on PeterPortal API */}
-                {/* <AlmanacGraph courseDetails={courseDetails} />  */}
+                {activeTab !== 2 ? null : <CourseInfoSearchButton courseDetails={courseDetails} term={term} />}
 
                 <CourseInfoButton
                     analyticsCategory={analyticsCategory}
@@ -197,20 +196,12 @@ function SectionTable(props: SectionTableProps) {
                         </TableRow>
                     </TableHead>
 
-                    <TableBody>
-                        {courseDetails.sections.map((section) => {
-                            return (
-                                <SectionTableBody
-                                    key={section.sectionCode}
-                                    section={section}
-                                    courseDetails={courseDetails}
-                                    term={term}
-                                    allowHighlight={allowHighlight}
-                                    scheduleNames={scheduleNames}
-                                />
-                            );
-                        })}
-                    </TableBody>
+                    <SectionTableBody
+                        courseDetails={courseDetails}
+                        term={term}
+                        allowHighlight={allowHighlight}
+                        scheduleNames={scheduleNames}
+                    />
                 </Table>
             </TableContainer>
         </>
